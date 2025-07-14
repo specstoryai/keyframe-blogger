@@ -66,3 +66,40 @@ Now users can specify a custom blog prompt file with `--prompt`, or it will defa
 
 ---
 
+_**User**_
+
+update @README.md 
+
+---
+
+_**Agent (claude-opus-4-20250514)**_
+
+I'll update the README.md to document the new `--prompt` option for `process_with_ai.py`:
+
+---
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **MultiEdit**
+
+Result:
+
+```
+Applied 3 edits to /Users/jakelevirne/dev/specstoryai/keyframe-blogger/README.md:
+1. Replaced "**Options**:
+- `--max-frames` - Limit frames if ne..." with "**Options**:
+- `--max-frames` - Limit frames if ne..."
+2. Replaced "# Use a faster model with limited frames
+python pr..." with "# Use a faster model with limited frames
+python pr..."
+3. Replaced "**What it does**:
+- Loads blog writing style from ..." with "**What it does**:
+- Loads blog writing style from ..."
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Updated! The README now documents the new `--prompt` option for specifying custom blog prompt files.
+
+---
+

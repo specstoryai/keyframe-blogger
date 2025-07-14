@@ -121,6 +121,7 @@ python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
 **Options**:
 - `--max-frames` - Limit frames if needed (default: use all frames)
 - `--model` - Model choice (default: gemini-2.5-pro)
+- `--prompt` - Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)
 
 **Examples**:
 ```bash
@@ -129,10 +130,13 @@ python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
 
 # Use a faster model with limited frames
 python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --model gemini-2.0-flash-exp --max-frames 50
+
+# Use a custom blog prompt file
+python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --prompt custom_prompt.md
 ```
 
 **What it does**:
-- Loads blog writing style from `BLOG_PROMPT.md` (in script directory)
+- Loads blog writing style from `BLOG_PROMPT.md` (default) or custom prompt file
 - Sends all frames + full transcript to Gemini 2.5 Pro
 - Generates blog post named after your directory
 - Analyzes which frames are referenced in the generated blog
@@ -247,3 +251,11 @@ Key files in this project:
 - `create_visual_summary.py` - Creates HTML/MD previews
 - `process_with_ai.py` - Generates blog post using Gemini
 - `BLOG_PROMPT.md` - Defines blog writing style (shared across all videos)
+
+---
+
+<div align="center">
+  <img src="bearclaude.png" alt="BearClaude" width="24" height="24">
+  <br>
+  Made with BearClaude
+</div>
