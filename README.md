@@ -255,7 +255,9 @@ Key files in this project:
 ---
 
 <div align="center">
-  <img src="bearclaude.png" alt="BearClaude" width="24" height="24">
-  <br>
-  Made with BearClaude
+  <a href="https://bearclaude.specstory.com">
+    <img src="bearclaude.png" alt="BearClaude" width="24" height="24">
+    <br>
+    Made with BearClaude
+  </a>
 </div>
