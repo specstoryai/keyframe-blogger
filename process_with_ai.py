@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+import os
+import json
+import base64
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part, SafetySetting
+from pathlib import Path
+import argparse
+
+def encode_image_to_base64(image_path):
+    """Encode image file to base64."""
+    with open(image_path, 'rb') as f:
+        return base64.b64encode(f.read()).decode('utf-8')
+
+def load_blog_prompt():
+    """Load the blog generation prompt."""
+    with open('BLOG_PROMPT.md', 'r') as f:
+        return f.read()
+
+def create_content_parts(api_data, max_frames=None):
+    """Create content parts for Gemini API from api_frame_data.json."""
+    parts = []
+    
+    # Add the blog prompt
+    blog_prompt = load_blog_prompt()
+    parts.append(Part.from_text(blog_prompt))
+    
+    # Add context about the video
+    parts.append(Part.from_text(f"\n\n## Video Information\n"
+                                f"Title: {api_data['video_title']}\n"
+                                f"Duration: {api_data['total_duration']}\n"
+                                f"Total Frames Available: {api_data['frame_count']}\n\n"))
+    
+    # Add full transcript
+    parts.append(Part.from_text(f"## Full Transcript\n\n{api_data['full_transcript']}\n\n"))
+    
+    # Add frame images with their transcript segments
+    parts.append(Part.from_text("## Frame Images with Context\n\n"))
+    
+    # Use all segments or limit if specified
+    segments = api_data['segments']
+    if max_frames and len(segments) > max_frames:
+        # Take every nth frame to get approximately max_frames
+        step = len(segments) // max_frames
+        selected_segments = segments[::step][:max_frames]
+        print(f"Selected {len(selected_segments)} frames out of {len(segments)} total")
+    else:
+        selected_segments = segments
+        print(f"Using all {len(selected_segments)} frames")
+    
+    # Add each frame with its context
+    for i, segment in enumerate(selected_segments):
+        # Add frame context
+        parts.append(Part.from_text(f"\n### Frame {i+1} - [{segment['timestamp']}]\n"
+                                   f"Transcript: {segment['transcript_segment']}\n"))
+        
+        # Add frame image
+        try:
+            image_data = encode_image_to_base64(segment['image_path'])
+            parts.append(Part.from_data(
+                mime_type="image/jpeg",
+                data=image_data
+            ))
+        except Exception as e:
+            print(f"Warning: Could not load image {segment['image_path']}: {e}")
+    
+    # Final instruction
+    parts.append(Part.from_text("\n\n## Task\n\n"
+                               "Based on the above transcript and frame images, "
+                               "create a comprehensive blog post following the style guidelines provided. "
+                               "Make sure to reference specific frames where relevant and create a "
+                               "cohesive narrative that stands on its own."))
+    
+    return parts
+
+def process_with_gemini(parts, model_name="gemini-2.5-pro"):
+    """Send content to Gemini and get blog post."""
+    
+    # Initialize Vertex AI
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    if not project_id:
+        raise ValueError("Please set GOOGLE_CLOUD_PROJECT environment variable")
+    
+    vertexai.init(project=project_id, location="us-central1")
+    
+    # Configure model
+    model = GenerativeModel(model_name)
+    
+    # Safety settings
+    safety_settings = [
+        SafetySetting(
+            category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold=SafetySetting.HarmBlockThreshold.OFF
+        ),
+        SafetySetting(
+            category=SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold=SafetySetting.HarmBlockThreshold.OFF
+        ),
+        SafetySetting(
+            category=SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold=SafetySetting.HarmBlockThreshold.OFF
+        ),
+        SafetySetting(
+            category=SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold=SafetySetting.HarmBlockThreshold.OFF
+        )
+    ]
+    
+    # Generate content
+    print(f"Sending to {model_name}...")
+    response = model.generate_content(
+        parts,
+        safety_settings=safety_settings,
+        generation_config={
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "max_output_tokens": 8192,
+        }
+    )
+    
+    # Handle response with multiple parts
+    try:
+        # Try simple text access first
+        return response.text
+    except ValueError:
+        # If that fails, extract text from parts
+        if response.candidates:
+            candidate = response.candidates[0]
+            if candidate.content and candidate.content.parts:
+                # Combine all text parts
+                text_parts = []
+                for part in candidate.content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        text_parts.append(part.text)
+                return '\n'.join(text_parts)
+        raise ValueError("Could not extract text from response")
+
+def main():
+    parser = argparse.ArgumentParser(description='Generate blog post from video frames and transcript')
+    parser.add_argument('--max-frames', type=int, default=None, 
+                       help='Maximum number of frames to send to API (default: all frames)')
+    parser.add_argument('--model', default='gemini-2.5-pro',
+                       help='Gemini model to use (default: gemini-2.5-pro)')
+    parser.add_argument('--output', default='blog_post.md',
+                       help='Output file for blog post (default: blog_post.md)')
+    args = parser.parse_args()
+    
+    # Load API data
+    print("Loading frame data...")
+    with open('api_frame_data.json', 'r') as f:
+        api_data = json.load(f)
+    
+    # Create content parts
+    if args.max_frames:
+        print(f"Creating content with up to {args.max_frames} frames...")
+    else:
+        print(f"Creating content with all available frames...")
+    parts = create_content_parts(api_data, max_frames=args.max_frames)
+    
+    # Process with Gemini
+    try:
+        blog_content = process_with_gemini(parts, model_name=args.model)
+        
+        # Save blog post
+        with open(args.output, 'w') as f:
+            f.write(blog_content)
+        
+        print(f"\nBlog post generated successfully!")
+        print(f"Saved to: {args.output}")
+        
+        # Show preview
+        print("\n" + "="*50)
+        print("PREVIEW (first 500 chars):")
+        print("="*50)
+        print(blog_content[:500] + "...")
+        
+    except Exception as e:
+        print(f"Error generating blog post: {e}")
+        raise
+
+if __name__ == "__main__":
+    main()

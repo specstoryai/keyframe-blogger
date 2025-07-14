@@ -98,12 +98,38 @@ python create_visual_summary.py
    - Full transcript as single string
    - Ready for Gemini API consumption
 
-### Step 3: Process with AI (Coming Soon)
+### Step 3: Generate Blog Post with AI
 
-The `api_frame_data.json` file is structured for efficient AI processing:
-- Send selected frames + transcript segments to Gemini
-- Generate blog posts, summaries, or other content
-- Dramatically reduced token usage vs. sending full video
+```bash
+python process_with_ai.py
+```
+
+**Options**:
+- `--max-frames` - Limit frames if needed (default: use all frames)
+- `--model` - Model choice (default: gemini-2.5-pro)
+- `--output` - Output filename (default: blog_post.md)
+
+**Examples**:
+```bash
+# Use all frames with Gemini 2.5 Pro (recommended)
+python process_with_ai.py
+
+# Use a faster model with limited frames
+python process_with_ai.py --model gemini-2.0-flash-exp --max-frames 50
+```
+
+**How it works**:
+1. Loads the blog writing prompt from `BLOG_PROMPT.md`
+2. Combines full transcript + all frame images (up to 460)
+3. Leverages Gemini 2.5 Pro's large context window (2M tokens)
+4. Generates a standalone blog post with proper structure
+
+**Output**: A complete blog post in Markdown format with:
+- Engaging title and introduction
+- Logical sections with headers
+- Embedded frame references
+- Code snippets and technical details
+- Professional technical writing style
 
 ## Benefits of This Approach
 
