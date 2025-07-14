@@ -2,6 +2,8 @@
 
 Convert instructional videos into blog posts by extracting key frames and using AI for content generation.
 
+![Example Blog Generation](example-blog.gif)
+
 ## Overview
 
 This project processes videos through three steps:
