@@ -2,7 +2,7 @@
 
 Convert instructional videos into blog posts by extracting key frames and using AI for content generation.
 
-![Example Blog Generation](example-blog.gif)
+![Example Blog Generation](media/example-blog.gif)
 
 ## Overview
 
@@ -93,6 +93,8 @@ python extract_frames.py building-a-mintlify-alternative-with-AI-Part-1
 ```bash
 python create_visual_summary.py building-a-mintlify-alternative-with-AI-Part-1
 ```
+
+![Full Transcript with Visual Markers](media/full_transcript_with_visual_markers.png)
 
 **What it does**:
 - Checks if frames exist (runs extract_frames.py automatically if needed)
@@ -258,7 +260,7 @@ Key files in this project:
 
 <div align="center">
   <a href="https://bearclaude.specstory.com">
-    <img src="bearclaude.png" alt="BearClaude" width="24" height="24">
+    <img src="media/bearclaude.png" alt="BearClaude" width="24" height="24">
     <br>
     Made with BearClaude
   </a>
