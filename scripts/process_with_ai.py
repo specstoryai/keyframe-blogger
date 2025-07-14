@@ -15,24 +15,24 @@ def encode_image_to_base64(image_path):
     with open(image_path, 'rb') as f:
         return base64.b64encode(f.read()).decode('utf-8')
 
-def load_blog_prompt():
+def load_blog_prompt(prompt_path=None):
     """Load the blog generation prompt."""
-    # Look for BLOG_PROMPT.md in the script's directory
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    prompt_path = os.path.join(script_dir, 'BLOG_PROMPT.md')
+    if prompt_path is None:
+        # Default to BLOG_PROMPT.md in the current directory
+        prompt_path = 'BLOG_PROMPT.md'
     
     if not os.path.exists(prompt_path):
-        raise FileNotFoundError(f"BLOG_PROMPT.md not found at {prompt_path}")
+        raise FileNotFoundError(f"Blog prompt file not found at {prompt_path}")
     
     with open(prompt_path, 'r') as f:
         return f.read()
 
-def create_content_parts(api_data, frames_dir, max_frames=None):
+def create_content_parts(api_data, frames_dir, max_frames=None, prompt_path=None):
     """Create content parts for Gemini API from api_frame_data.json."""
     parts = []
     
     # Add the blog prompt
-    blog_prompt = load_blog_prompt()
+    blog_prompt = load_blog_prompt(prompt_path)
     parts.append(Part.from_text(blog_prompt))
     
     # Add context about the video
@@ -225,6 +225,8 @@ def main():
                        help='Maximum number of frames to send to API (default: all frames)')
     parser.add_argument('--model', default='gemini-2.5-pro',
                        help='Gemini model to use (default: gemini-2.5-pro)')
+    parser.add_argument('--prompt', type=str, default=None,
+                       help='Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)')
     args = parser.parse_args()
     
     try:
@@ -249,7 +251,7 @@ def main():
             print(f"Creating content with up to {args.max_frames} frames...")
         else:
             print(f"Creating content with all available frames...")
-        parts = create_content_parts(api_data, frames_dir, max_frames=args.max_frames)
+        parts = create_content_parts(api_data, frames_dir, max_frames=args.max_frames, prompt_path=args.prompt)
         
         # Process with Gemini
         blog_content = process_with_gemini(parts, model_name=args.model)

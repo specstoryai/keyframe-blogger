@@ -1,6 +1,6 @@
-# Video Transcriber with Frame Extraction and AI Processing
+# Keyframe Blogger
 
-A workflow for converting instructional videos into blog posts: extract key frames locally, then use AI for content generation.
+Convert instructional videos into blog posts by extracting key frames and using AI for content generation.
 
 ## Overview
 
