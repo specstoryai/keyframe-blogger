@@ -197,13 +197,24 @@ def update_image_paths_in_blog(blog_content, blog_name):
     updated_content = blog_content
     
     # Pattern to match various image path formats
+    # Only update paths that don't already have the blog_name prefix
     patterns = [
-        (r'!\[([^\]]*)\]\(frames/([^)]+)\)', r'![\1](' + blog_name + r'/\2)'),  # ![alt](frames/frame_0001.jpg)
-        (r'!\[([^\]]*)\]\(([^/]+\.jpg)\)', r'![\1](' + blog_name + r'/\2)'),    # ![alt](frame_0001.jpg)
+        (r'!\[([^\]]*)\]\(frames/(frame_\d+\.jpg)\)', r'![\1](' + blog_name + r'/\2)'),  # ![alt](frames/frame_0001.jpg)
+        (r'!\[([^\]]*)\]\((frame_\d+\.jpg)\)', r'![\1](' + blog_name + r'/\2)'),         # ![alt](frame_0001.jpg)
     ]
     
+    # Avoid double-processing by checking if path already contains blog_name
     for pattern, replacement in patterns:
-        updated_content = re.sub(pattern, replacement, updated_content)
+        # Only replace if the path doesn't already contain the blog_name
+        if blog_name not in updated_content:
+            updated_content = re.sub(pattern, replacement, updated_content)
+        else:
+            # More careful replacement - only if not already prefixed
+            lines = updated_content.split('\n')
+            for i, line in enumerate(lines):
+                if f']({blog_name}/' not in line:  # Not already updated
+                    lines[i] = re.sub(pattern, replacement, line)
+            updated_content = '\n'.join(lines)
     
     return updated_content
 

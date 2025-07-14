@@ -233,7 +233,7 @@ Edit `BLOG_PROMPT.md` to adjust:
 
 ## Tips
 
-- Name your directories descriptively (they become the video title)
+- Name your directories descriptively (they become the blog title)
 - Keep MP4 and SRT filenames consistent for easier management
 - Review the HTML preview before generating the blog post
 - The blog prompt can be customized in `BLOG_PROMPT.md`
