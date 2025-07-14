@@ -5,6 +5,29 @@ import re
 from pathlib import Path
 import json
 from typing import List, Tuple, Dict
+import argparse
+import sys
+
+def find_video_and_srt(directory: str) -> Tuple[str, str]:
+    """Find MP4 and SRT files in the given directory."""
+    dir_path = Path(directory)
+    if not dir_path.exists():
+        raise ValueError(f"Directory {directory} does not exist")
+    
+    mp4_files = list(dir_path.glob("*.mp4"))
+    srt_files = list(dir_path.glob("*.srt"))
+    
+    if not mp4_files:
+        raise ValueError(f"No MP4 files found in {directory}")
+    if not srt_files:
+        raise ValueError(f"No SRT files found in {directory}")
+    
+    if len(mp4_files) > 1:
+        print(f"Multiple MP4 files found, using: {mp4_files[0].name}")
+    if len(srt_files) > 1:
+        print(f"Multiple SRT files found, using: {srt_files[0].name}")
+    
+    return str(mp4_files[0]), str(srt_files[0])
 
 def parse_srt(srt_file: str) -> List[Dict[str, any]]:
     """Parse SRT file and extract timestamps with text."""
@@ -106,59 +129,77 @@ def get_key_frames(subtitles: List[Dict], interval: float = 5.0) -> List[Dict]:
     return key_frames
 
 def main():
-    # Configuration
-    video_file = "BuildingTnyDocs-ADocsSiteMicroSaaS.mp4"
-    srt_file = "BuildingTnyDocs-ADocsSiteMicroSaaS.srt"
-    output_dir = "frames"
+    parser = argparse.ArgumentParser(description='Extract frames from video based on transcript')
+    parser.add_argument('directory', help='Directory containing MP4 and SRT files')
+    parser.add_argument('--interval', type=float, default=5.0, 
+                       help='Minimum interval between frames in seconds (default: 5.0)')
+    args = parser.parse_args()
     
-    # Create output directory
-    Path(output_dir).mkdir(exist_ok=True)
-    
-    print("Parsing SRT file...")
-    subtitles = parse_srt(srt_file)
-    print(f"Found {len(subtitles)} subtitle entries")
-    
-    print("\nSelecting key frames...")
-    key_frames = get_key_frames(subtitles, interval=5.0)
-    print(f"Selected {len(key_frames)} key frames")
-    
-    print("\nExtracting frames...")
-    frame_data = []
-    
-    for i, frame in enumerate(key_frames):
-        timestamp = frame['start']
-        output_file = os.path.join(output_dir, f"frame_{i:04d}.jpg")
+    try:
+        # Find video and SRT files
+        print(f"Looking for video and SRT files in: {args.directory}")
+        video_file, srt_file = find_video_and_srt(args.directory)
+        print(f"Found video: {Path(video_file).name}")
+        print(f"Found SRT: {Path(srt_file).name}")
         
-        print(f"Extracting frame {i+1}/{len(key_frames)} at {timestamp}")
-        extract_frame(video_file, timestamp, output_file)
+        # Create output directory
+        output_dir = os.path.join(args.directory, "frames")
+        Path(output_dir).mkdir(exist_ok=True)
         
-        frame_data.append({
-            'frame_number': i,
-            'timestamp': timestamp,
-            'timestamp_seconds': frame['start_seconds'],
-            'text': frame['text'],
-            'image_path': output_file
-        })
-    
-    # Save frame data as JSON
-    with open('frame_data.json', 'w') as f:
-        json.dump(frame_data, f, indent=2)
-    
-    # Also save all subtitles for full transcript
-    with open('all_subtitles.json', 'w') as f:
-        json.dump(subtitles, f, indent=2)
-    
-    print(f"\nExtracted {len(key_frames)} frames to '{output_dir}/' directory")
-    print("Frame data saved to 'frame_data.json'")
-    print("Full transcript saved to 'all_subtitles.json'")
-    
-    # Print summary
-    print("\nFrame Summary:")
-    print("-" * 80)
-    for frame in frame_data[:10]:  # Show first 10
-        print(f"[{frame['timestamp']}] {frame['text'][:60]}...")
-    if len(frame_data) > 10:
-        print(f"... and {len(frame_data) - 10} more frames")
+        print("\nParsing SRT file...")
+        subtitles = parse_srt(srt_file)
+        print(f"Found {len(subtitles)} subtitle entries")
+        
+        print("\nSelecting key frames...")
+        key_frames = get_key_frames(subtitles, interval=args.interval)
+        print(f"Selected {len(key_frames)} key frames")
+        
+        print("\nExtracting frames...")
+        frame_data = []
+        
+        for i, frame in enumerate(key_frames):
+            timestamp = frame['start']
+            output_file = os.path.join(output_dir, f"frame_{i:04d}.jpg")
+            
+            print(f"Extracting frame {i+1}/{len(key_frames)} at {timestamp}")
+            extract_frame(video_file, timestamp, output_file)
+            
+            # Just use the filename since everything is in the frames directory
+            filename = os.path.basename(output_file)
+            
+            frame_data.append({
+                'frame_number': i,
+                'timestamp': timestamp,
+                'timestamp_seconds': frame['start_seconds'],
+                'text': frame['text'],
+                'image_path': filename
+            })
+        
+        # Save frame data as JSON in the frames directory
+        frame_data_path = os.path.join(output_dir, 'frame_data.json')
+        with open(frame_data_path, 'w') as f:
+            json.dump(frame_data, f, indent=2)
+        
+        # Also save all subtitles for full transcript
+        all_subtitles_path = os.path.join(output_dir, 'all_subtitles.json')
+        with open(all_subtitles_path, 'w') as f:
+            json.dump(subtitles, f, indent=2)
+        
+        print(f"\nExtracted {len(key_frames)} frames to '{output_dir}' directory")
+        print(f"Frame data saved to '{frame_data_path}'")
+        print(f"Full transcript saved to '{all_subtitles_path}'")
+        
+        # Print summary
+        print("\nFrame Summary:")
+        print("-" * 80)
+        for frame in frame_data[:10]:  # Show first 10
+            print(f"[{frame['timestamp']}] {frame['text'][:60]}...")
+        if len(frame_data) > 10:
+            print(f"... and {len(frame_data) - 10} more frames")
+            
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

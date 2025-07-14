@@ -6,6 +6,9 @@ import vertexai
 from vertexai.generative_models import GenerativeModel, Part, SafetySetting
 from pathlib import Path
 import argparse
+import sys
+import re
+import shutil
 
 def encode_image_to_base64(image_path):
     """Encode image file to base64."""
@@ -14,10 +17,17 @@ def encode_image_to_base64(image_path):
 
 def load_blog_prompt():
     """Load the blog generation prompt."""
-    with open('BLOG_PROMPT.md', 'r') as f:
+    # Look for BLOG_PROMPT.md in the script's directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    prompt_path = os.path.join(script_dir, 'BLOG_PROMPT.md')
+    
+    if not os.path.exists(prompt_path):
+        raise FileNotFoundError(f"BLOG_PROMPT.md not found at {prompt_path}")
+    
+    with open(prompt_path, 'r') as f:
         return f.read()
 
-def create_content_parts(api_data, max_frames=None):
+def create_content_parts(api_data, frames_dir, max_frames=None):
     """Create content parts for Gemini API from api_frame_data.json."""
     parts = []
     
@@ -51,12 +61,14 @@ def create_content_parts(api_data, max_frames=None):
     # Add each frame with its context
     for i, segment in enumerate(selected_segments):
         # Add frame context
-        parts.append(Part.from_text(f"\n### Frame {i+1} - [{segment['timestamp']}]\n"
+        parts.append(Part.from_text(f"\n### Frame {segment['frame_number']} - [{segment['timestamp']}]\n"
                                    f"Transcript: {segment['transcript_segment']}\n"))
         
         # Add frame image
         try:
-            image_data = encode_image_to_base64(segment['image_path'])
+            # Image path is relative to frames directory
+            image_path = os.path.join(frames_dir, segment['image_path'])
+            image_data = encode_image_to_base64(image_path)
             parts.append(Part.from_data(
                 mime_type="image/jpeg",
                 data=image_data
@@ -135,38 +147,131 @@ def process_with_gemini(parts, model_name="gemini-2.5-pro"):
                 return '\n'.join(text_parts)
         raise ValueError("Could not extract text from response")
 
+def extract_referenced_frames(blog_content):
+    """Extract frame references from the blog post markdown."""
+    # Look for patterns like frame_0006.jpg or Frame 6 or [Frame 6]
+    frame_patterns = [
+        r'frame_(\d+)\.jpg',  # frame_0006.jpg
+        r'Frame (\d+)',       # Frame 6
+        r'\[Frame (\d+)\]',   # [Frame 6]
+    ]
+    
+    referenced_frames = set()
+    for pattern in frame_patterns:
+        matches = re.findall(pattern, blog_content, re.IGNORECASE)
+        for match in matches:
+            frame_num = int(match)
+            referenced_frames.add(frame_num)
+    
+    return sorted(referenced_frames)
+
+def copy_referenced_frames(frames_dir, output_dir, blog_name, referenced_frames):
+    """Copy only the referenced frame images to the output directory."""
+    # Create subdirectory for images
+    images_dir = os.path.join(output_dir, blog_name)
+    Path(images_dir).mkdir(parents=True, exist_ok=True)
+    
+    copied_count = 0
+    for frame_num in referenced_frames:
+        # Try different filename formats
+        possible_filenames = [
+            f"frame_{frame_num:04d}.jpg",  # frame_0006.jpg
+            f"frame_{frame_num:03d}.jpg",   # frame_006.jpg
+            f"frame_{frame_num}.jpg",       # frame_6.jpg
+        ]
+        
+        for filename in possible_filenames:
+            src_path = os.path.join(frames_dir, filename)
+            if os.path.exists(src_path):
+                dst_path = os.path.join(images_dir, filename)
+                shutil.copy2(src_path, dst_path)
+                print(f"Copied {filename} to output directory")
+                copied_count += 1
+                break
+    
+    return copied_count
+
+def update_image_paths_in_blog(blog_content, blog_name):
+    """Update image paths in the blog to point to the local copies."""
+    # Replace absolute or frames/ paths with relative paths
+    updated_content = blog_content
+    
+    # Pattern to match various image path formats
+    patterns = [
+        (r'!\[([^\]]*)\]\(frames/([^)]+)\)', r'![\1](' + blog_name + r'/\2)'),  # ![alt](frames/frame_0001.jpg)
+        (r'!\[([^\]]*)\]\(([^/]+\.jpg)\)', r'![\1](' + blog_name + r'/\2)'),    # ![alt](frame_0001.jpg)
+    ]
+    
+    for pattern, replacement in patterns:
+        updated_content = re.sub(pattern, replacement, updated_content)
+    
+    return updated_content
+
 def main():
     parser = argparse.ArgumentParser(description='Generate blog post from video frames and transcript')
+    parser.add_argument('directory', help='Directory containing frames subdirectory with extracted data')
     parser.add_argument('--max-frames', type=int, default=None, 
                        help='Maximum number of frames to send to API (default: all frames)')
     parser.add_argument('--model', default='gemini-2.5-pro',
                        help='Gemini model to use (default: gemini-2.5-pro)')
-    parser.add_argument('--output', default='blog_post.md',
-                       help='Output file for blog post (default: blog_post.md)')
     args = parser.parse_args()
     
-    # Load API data
-    print("Loading frame data...")
-    with open('api_frame_data.json', 'r') as f:
-        api_data = json.load(f)
-    
-    # Create content parts
-    if args.max_frames:
-        print(f"Creating content with up to {args.max_frames} frames...")
-    else:
-        print(f"Creating content with all available frames...")
-    parts = create_content_parts(api_data, max_frames=args.max_frames)
-    
-    # Process with Gemini
     try:
+        # Validate directory
+        if not os.path.exists(args.directory):
+            raise ValueError(f"Directory {args.directory} does not exist")
+        
+        # Set up paths
+        frames_dir = os.path.join(args.directory, "frames")
+        api_data_path = os.path.join(frames_dir, "api_frame_data.json")
+        
+        if not os.path.exists(api_data_path):
+            raise ValueError(f"api_frame_data.json not found in {frames_dir}. Run create_visual_summary.py first.")
+        
+        # Load API data
+        print(f"Loading frame data from {api_data_path}...")
+        with open(api_data_path, 'r') as f:
+            api_data = json.load(f)
+        
+        # Create content parts
+        if args.max_frames:
+            print(f"Creating content with up to {args.max_frames} frames...")
+        else:
+            print(f"Creating content with all available frames...")
+        parts = create_content_parts(api_data, frames_dir, max_frames=args.max_frames)
+        
+        # Process with Gemini
         blog_content = process_with_gemini(parts, model_name=args.model)
         
+        # Create output directory
+        output_dir = os.path.join(args.directory, "output")
+        Path(output_dir).mkdir(exist_ok=True)
+        
+        # Generate blog filename from directory name
+        blog_name = os.path.basename(args.directory)
+        blog_filename = f"{blog_name}.md"
+        blog_path = os.path.join(output_dir, blog_filename)
+        
+        # Extract referenced frames
+        print("\nAnalyzing blog for frame references...")
+        referenced_frames = extract_referenced_frames(blog_content)
+        print(f"Found references to {len(referenced_frames)} frames: {referenced_frames}")
+        
+        # Update image paths in blog
+        blog_content = update_image_paths_in_blog(blog_content, blog_name)
+        
         # Save blog post
-        with open(args.output, 'w') as f:
+        with open(blog_path, 'w') as f:
             f.write(blog_content)
         
         print(f"\nBlog post generated successfully!")
-        print(f"Saved to: {args.output}")
+        print(f"Saved to: {blog_path}")
+        
+        # Copy referenced frames
+        if referenced_frames:
+            print(f"\nCopying referenced frames to output directory...")
+            copied = copy_referenced_frames(frames_dir, output_dir, blog_name, referenced_frames)
+            print(f"Copied {copied} frame images to {os.path.join(output_dir, blog_name)}")
         
         # Show preview
         print("\n" + "="*50)
@@ -175,8 +280,8 @@ def main():
         print(blog_content[:500] + "...")
         
     except Exception as e:
-        print(f"Error generating blog post: {e}")
-        raise
+        print(f"Error generating blog post: {e}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

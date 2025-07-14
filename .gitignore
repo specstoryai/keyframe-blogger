@@ -6,6 +6,7 @@
 frames/
 venv/
 .claude/
+**/output/
 
 # Generated output files
 all_subtitles.json

@@ -1,20 +1,18 @@
 # Video Transcriber with Frame Extraction and AI Processing
 
-A two-step approach to efficiently process long instructional videos to create matching blog posts: extract key frames locally, then use AI for analysis.
+A workflow for converting instructional videos into blog posts: extract key frames locally, then use AI for content generation.
 
 ## Overview
 
-This project processes videos by:
-1. **Local Processing**: Extract key frames and parse SRT transcript
-2. **AI Enhancement**: Send selected frames + transcript to Gemini for blog post generation
-
-This approach dramatically reduces API costs compared to sending entire videos.
+This project processes videos through three steps:
+1. **Frame Extraction**: Extract key frames based on transcript analysis
+2. **Visual Summary**: Create HTML/Markdown previews with frames + transcript
+3. **AI Blog Generation**: Use Gemini to create a polished blog post
 
 ## Prerequisites
 
 - Python 3.8+
-- MP4 video file
-- Matching SRT transcript file (e.g., from Tella)
+- MP4 video file + matching SRT transcript (e.g., from Tella)
 - FFmpeg installed locally
 - Google Cloud account (for AI processing)
 
@@ -51,37 +49,55 @@ This approach dramatically reduces API costs compared to sending entire videos.
      export GOOGLE_CLOUD_PROJECT="your-project-id"
      ```
 
-## Usage
+## Workflow
 
-### Step 1: Extract Frames and Parse Transcript
+### 1. Organize Your Video Files
+
+Create a directory for your video project and add your files:
 
 ```bash
-python extract_frames.py
+# Create project directory
+mkdir building-a-mintlify-alternative-with-AI-Part-1
+
+# Copy your Tella exports
+cp your-video.mp4 building-a-mintlify-alternative-with-AI-Part-1/
+cp your-video.srt building-a-mintlify-alternative-with-AI-Part-1/
 ```
 
-**Inputs**:
-- `BuildingTnyDocs-ADocsSiteMicroSaaS.mp4` (or modify the filename in the script)
-- `BuildingTnyDocs-ADocsSiteMicroSaaS.srt` (matching SRT file)
+### 2. Extract Frames
 
-**How it works**:
-- Parses the SRT file to identify complete thoughts (sentences ending with `.`, `?`, `!`)
+```bash
+python extract_frames.py building-a-mintlify-alternative-with-AI-Part-1
+```
+
+**What it does**:
+- Automatically finds MP4 and SRT files in the directory
+- Parses SRT to identify complete thoughts (sentences ending with `.`, `?`, `!`)
 - Extracts frames at semantically meaningful moments:
   - When a complete sentence/thought is expressed
   - At least 5 seconds apart (to avoid redundancy)
   - OR when important content appears (text > 50 characters)
 
-**Outputs**:
-- `frames/` directory with extracted JPG images
+**Options**:
+- `--interval 5.0` - Minimum seconds between frames (default: 5.0)
+
+**Output** (in `building-a-mintlify-alternative-with-AI-Part-1/frames/`):
+- Frame images (`frame_0000.jpg`, `frame_0001.jpg`, etc.)
 - `frame_data.json` - Frame metadata with timestamps
 - `all_subtitles.json` - Complete parsed transcript
 
-### Step 2: Create Visual Summaries
+### 3. Create Visual Summaries
 
 ```bash
-python create_visual_summary.py
+python create_visual_summary.py building-a-mintlify-alternative-with-AI-Part-1
 ```
 
-**Outputs**:
+**What it does**:
+- Checks if frames exist (runs extract_frames.py automatically if needed)
+- Creates visual representations of your video content
+- Uses directory name as the video title
+
+**Output** (in the `frames/` subdirectory):
 1. **visual_transcript.html** - Interactive web page with:
    - Full transcript with embedded frame images
    - Table of contents for navigation
@@ -90,56 +106,123 @@ python create_visual_summary.py
 2. **visual_transcript.md** - Markdown version with:
    - Full transcript with frame markers
    - Embedded images at correct timestamps
-   - Ready for documentation/sharing
 
 3. **api_frame_data.json** - API-ready format with:
    - Segmented transcript (text between frames)
    - Frame metadata and paths
    - Full transcript as single string
-   - Ready for Gemini API consumption
 
-### Step 3: Generate Blog Post with AI
+### 4. Generate Blog Post with AI
 
 ```bash
-python process_with_ai.py
+python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
 ```
 
 **Options**:
 - `--max-frames` - Limit frames if needed (default: use all frames)
 - `--model` - Model choice (default: gemini-2.5-pro)
-- `--output` - Output filename (default: blog_post.md)
 
 **Examples**:
 ```bash
 # Use all frames with Gemini 2.5 Pro (recommended)
-python process_with_ai.py
+python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
 
 # Use a faster model with limited frames
-python process_with_ai.py --model gemini-2.0-flash-exp --max-frames 50
+python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --model gemini-2.0-flash-exp --max-frames 50
 ```
 
-**How it works**:
-1. Loads the blog writing prompt from `BLOG_PROMPT.md`
-2. Combines full transcript + all frame images (up to 460)
-3. Leverages Gemini 2.5 Pro's large context window (2M tokens)
-4. Generates a standalone blog post with proper structure
+**What it does**:
+- Loads blog writing style from `BLOG_PROMPT.md` (in script directory)
+- Sends all frames + full transcript to Gemini 2.5 Pro
+- Generates blog post named after your directory
+- Analyzes which frames are referenced in the generated blog
+- Copies only referenced frames to the output directory
+- Updates image paths in the blog to point to local copies
 
-**Output**: A complete blog post in Markdown format with:
-- Engaging title and introduction
-- Logical sections with headers
-- Embedded frame references
-- Code snippets and technical details
-- Professional technical writing style
+**Output Structure**:
+```
+building-a-mintlify-alternative-with-AI-Part-1/
+└── output/
+    ├── building-a-mintlify-alternative-with-AI-Part-1.md  # Blog post
+    └── building-a-mintlify-alternative-with-AI-Part-1/    # Referenced frames only
+        ├── frame_0006.jpg
+        ├── frame_0142.jpg
+        └── ...
+```
 
-## Benefits of This Approach
+## Example Directory Structure
+
+After processing, your project directory will look like:
+
+```
+building-a-mintlify-alternative-with-AI-Part-1/
+├── your-video.mp4
+├── your-video.srt
+├── frames/
+│   ├── frame_0000.jpg
+│   ├── frame_0001.jpg
+│   ├── ...
+│   ├── frame_data.json
+│   ├── all_subtitles.json
+│   ├── visual_transcript.html
+│   ├── visual_transcript.md
+│   └── api_frame_data.json
+└── output/
+    ├── building-a-mintlify-alternative-with-AI-Part-1.md
+    └── building-a-mintlify-alternative-with-AI-Part-1/
+        ├── frame_0006.jpg  # Only referenced frames
+        ├── frame_0142.jpg
+        └── ...
+```
+
+## Frame Selection Logic
+
+The script captures frames at moments when:
+- A complete thought or sentence has been expressed
+- Enough time has passed to avoid similar frames (default: 5 seconds)
+- OR when there's particularly important/lengthy content (>50 characters)
+
+This ensures frames are captured at **semantically meaningful moments** rather than fixed intervals.
+
+## Customization
+
+### Adjust Frame Extraction Interval
+
+```bash
+# Extract frames with 10-second minimum interval
+python extract_frames.py your-directory --interval 10.0
+```
+
+### Process Multiple Videos
+
+Simply create separate directories for each video:
+
+```bash
+python extract_frames.py video-project-1
+python extract_frames.py video-project-2
+python create_visual_summary.py video-project-1
+python create_visual_summary.py video-project-2
+python process_with_ai.py video-project-1
+python process_with_ai.py video-project-2
+```
+
+### Customize Blog Writing Style
+
+Edit `BLOG_PROMPT.md` to adjust:
+- Writing tone and style
+- Section structure
+- Technical detail level
+- Image usage guidelines
+
+## Benefits
 
 1. **Cost Efficiency**: 
    - Process hour-long videos for pennies instead of dollars
-   - Only send key frames (460 frames → ~245 key frames)
-   - Include transcript context without video overhead
+   - Only send key frames to AI (not entire video)
+   - Leverage Gemini 2.5 Pro's large context window
 
 2. **Flexibility**:
-   - Choose which frames to include
+   - Work with any video + SRT combination
    - Adjust frame selection criteria
    - Process locally without API limits
 
@@ -148,19 +231,19 @@ python process_with_ai.py --model gemini-2.0-flash-exp --max-frames 50
    - Full transcript preserved
    - Visual + text context for better AI understanding
 
-## Customization
+## Tips
 
-To process your own videos:
+- Name your directories descriptively (they become the video title)
+- Keep MP4 and SRT filenames consistent for easier management
+- Review the HTML preview before generating the blog post
+- The blog prompt can be customized in `BLOG_PROMPT.md`
+- Only frames referenced in the blog are copied to output (saves space)
+- Frame numbering starts at 0 (Frame 0, Frame 1, etc.)
 
-1. Update filenames in `extract_frames.py`:
-   ```python
-   video_file = "your_video.mp4"
-   srt_file = "your_transcript.srt"
-   ```
+## File Structure
 
-2. Adjust frame selection criteria:
-   ```python
-   key_frames = get_key_frames(subtitles, interval=5.0)  # Change interval
-   ```
-
-3. Modify frame selection logic in `get_key_frames()` function
+Key files in this project:
+- `extract_frames.py` - Extracts frames from video based on transcript
+- `create_visual_summary.py` - Creates HTML/MD previews
+- `process_with_ai.py` - Generates blog post using Gemini
+- `BLOG_PROMPT.md` - Defines blog writing style (shared across all videos)
