@@ -164,39 +164,3 @@ To process your own videos:
    ```
 
 3. Modify frame selection logic in `get_key_frames()` function
-
----
-
-## Archive: Direct Video Processing (Old Approach)
-
-<details>
-<summary>Click to expand old documentation</summary>
-
-### Old Usage (Direct Video to API)
-
-This approach sent entire videos to Gemini, which was expensive for long videos.
-
-#### Option 1: Local file processing
-```bash
-python transcribe_video.py
-```
-
-#### Option 2: Via Google Cloud Storage
-```bash
-python transcribe_video_gcs.py
-```
-
-### Token Optimization (Old Approach)
-
-The scripts implemented several optimizations:
-- **FPS reduction**: Set to 0.5 fps instead of default 1 fps
-- **Resolution**: Could be set to LOW for additional savings
-- **Model choice**: Using `gemini-2.0-flash-exp`
-
-### Estimated Costs (Old Approach)
-
-- 1 hour video at 0.5 fps ≈ 500K tokens
-- Gemini 2.5 Flash: ~$1.00 per hour of video
-- Gemini 2.5 Pro: ~$1.70 per hour of video
-
-</details>
