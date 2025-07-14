@@ -20,14 +20,22 @@ This project processes videos through three steps:
 
 ## Setup
 
-1. **Install dependencies**:
+1. **Install Poetry** (if not already installed):
    ```bash
-   python -m venv venv
-   source venv/bin/activate
-   pip install google-cloud-aiplatform
+   curl -sSL https://install.python-poetry.org | python3 -
    ```
 
-2. **Install FFmpeg** (if not already installed):
+2. **Install dependencies**:
+   ```bash
+   poetry install
+   ```
+
+3. **Activate the virtual environment**:
+   ```bash
+   poetry shell
+   ```
+
+4. **Install FFmpeg** (if not already installed):
    ```bash
    # macOS
    brew install ffmpeg
@@ -39,7 +47,7 @@ This project processes videos through three steps:
    # Download from https://ffmpeg.org/download.html
    ```
 
-3. **Configure Google Cloud** (for AI processing):
+5. **Configure Google Cloud** (for AI processing):
    - Create a Google Cloud project
    - Enable the Vertex AI API
    - Set up authentication:
@@ -66,10 +74,12 @@ cp your-video.mp4 building-a-mintlify-alternative-with-AI-Part-1/
 cp your-video.srt building-a-mintlify-alternative-with-AI-Part-1/
 ```
 
+> **Note**: If you have transcripts in other formats (VTT, TXT, etc.), you can convert them to SRT using tools like [FFmpeg](https://ffmpeg.org/) (`ffmpeg -i input.vtt output.srt`) or online converters like [Subtitle Edit](https://www.nikse.dk/SubtitleEdit/).
+
 ### 2. Extract Frames
 
 ```bash
-python extract_frames.py building-a-mintlify-alternative-with-AI-Part-1
+poetry run python scripts/extract_frames.py building-a-mintlify-alternative-with-AI-Part-1
 ```
 
 **What it does**:
@@ -91,7 +101,7 @@ python extract_frames.py building-a-mintlify-alternative-with-AI-Part-1
 ### 3. Create Visual Summaries
 
 ```bash
-python create_visual_summary.py building-a-mintlify-alternative-with-AI-Part-1
+poetry run python scripts/create_visual_summary.py building-a-mintlify-alternative-with-AI-Part-1
 ```
 
 ![Full Transcript with Visual Markers](media/full_transcript_with_visual_markers.png)
@@ -119,7 +129,7 @@ python create_visual_summary.py building-a-mintlify-alternative-with-AI-Part-1
 ### 4. Generate Blog Post with AI
 
 ```bash
-python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
+poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
 ```
 
 **Options**:
@@ -130,13 +140,13 @@ python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
 **Examples**:
 ```bash
 # Use all frames with Gemini 2.5 Pro (recommended)
-python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
+poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
 
 # Use a faster model with limited frames
-python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --model gemini-2.0-flash-exp --max-frames 50
+poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --model gemini-2.0-flash-exp --max-frames 50
 
 # Use a custom blog prompt file
-python process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --prompt custom_prompt.md
+poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --prompt custom_prompt.md
 ```
 
 **What it does**:
@@ -198,7 +208,7 @@ This ensures frames are captured at **semantically meaningful moments** rather t
 
 ```bash
 # Extract frames with 10-second minimum interval
-python extract_frames.py your-directory --interval 10.0
+poetry run python scripts/extract_frames.py your-directory --interval 10.0
 ```
 
 ### Process Multiple Videos
@@ -206,12 +216,12 @@ python extract_frames.py your-directory --interval 10.0
 Simply create separate directories for each video:
 
 ```bash
-python extract_frames.py video-project-1
-python extract_frames.py video-project-2
-python create_visual_summary.py video-project-1
-python create_visual_summary.py video-project-2
-python process_with_ai.py video-project-1
-python process_with_ai.py video-project-2
+poetry run python scripts/extract_frames.py video-project-1
+poetry run python scripts/extract_frames.py video-project-2
+poetry run python scripts/create_visual_summary.py video-project-1
+poetry run python scripts/create_visual_summary.py video-project-2
+poetry run python scripts/process_with_ai.py video-project-1
+poetry run python scripts/process_with_ai.py video-project-2
 ```
 
 ### Customize Blog Writing Style
