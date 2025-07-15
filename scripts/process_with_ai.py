@@ -68,16 +68,21 @@ def create_content_parts(api_data, frames_dir, max_frames=None, prompt_path=None
         parts.append(types.Part.from_text(text=f"\n### Frame {segment['frame_number']} - [{segment['timestamp']}]\n"
                                               f"Transcript: {segment['transcript_segment']}\n"))
         
-        # Add frame image path - we'll upload these in process_with_gemini
+        # Add frame image
         try:
             # Image path is relative to frames directory
             image_path = os.path.join(frames_dir, segment['image_path'])
             if os.path.exists(image_path):
-                parts.append(image_path)  # Store path for later upload
+                with open(image_path, 'rb') as f:
+                    image_bytes = f.read()
+                parts.append(types.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type="image/jpeg"
+                ))
             else:
                 print(f"Warning: Image not found: {segment['image_path']}")
         except Exception as e:
-            print(f"Warning: Could not process image {segment['image_path']}: {e}")
+            print(f"Warning: Could not load image {segment['image_path']}: {e}")
     
     # Final instruction
     parts.append(types.Part.from_text(text="\n\n## Task\n\n"
@@ -99,46 +104,17 @@ def process_with_gemini(parts, model_name="gemini-2.5-pro"):
     # Initialize client
     client = genai.Client(api_key=api_key)
     
-    # Process parts to handle file uploads
-    processed_parts = []
-    uploaded_files = []  # Keep track of uploaded files
-    
-    print("Processing content parts...")
-    for part in parts:
-        if isinstance(part, str) and part.endswith('.jpg') and os.path.exists(part):
-            # This is an image path, upload it using Files API
-            print(f"Uploading {os.path.basename(part)}...")
-            try:
-                uploaded_file = client.files.upload(file=part)
-                processed_parts.append(uploaded_file)
-                uploaded_files.append(uploaded_file)
-            except Exception as e:
-                print(f"Warning: Failed to upload {part}: {e}")
-        else:
-            # This is already a Part object
-            processed_parts.append(part)
-    
-    print(f"Uploaded {len(uploaded_files)} images")
-    
-    # Generate content
-    print(f"Sending to {model_name}...")
+    # Generate content with inline images
+    print(f"Sending to {model_name} with {len(parts)} content parts...")
     response = client.models.generate_content(
         model=model_name,
-        contents=processed_parts,
+        contents=parts,
         config=types.GenerateContentConfig(
             temperature=0.7,
             top_p=0.95,
             max_output_tokens=8192,
         )
     )
-    
-    # Clean up uploaded files
-    print("Cleaning up uploaded files...")
-    for file in uploaded_files:
-        try:
-            client.files.delete(name=file.name)
-        except Exception as e:
-            print(f"Warning: Failed to delete {file.name}: {e}")
     
     # Extract text from response
     return response.text
