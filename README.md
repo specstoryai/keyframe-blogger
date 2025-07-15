@@ -270,6 +270,10 @@ Key files in this project:
 - `process_with_ai.py` - Generates blog post using Gemini
 - `BLOG_PROMPT.md` - Defines blog writing style (shared across all videos)
 
+## Future
+- In a draft blog post, deep link from images to their matching time in the video (e.g. on YouTube)
+- Customizable link paths for images included in the draft blog post
+
 ---
 
 <div align="center">
