@@ -13,10 +13,10 @@ This project processes videos through three steps:
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.9+
 - MP4 video file + matching SRT transcript (e.g., from Tella)
 - FFmpeg installed locally
-- Google Cloud account (for AI processing)
+- Gemini API key (get one free at https://aistudio.google.com/apikey)
 
 ## Setup
 
@@ -30,10 +30,8 @@ This project processes videos through three steps:
    poetry install
    ```
 
-3. **Activate the virtual environment**:
-   ```bash
-   poetry shell
-   ```
+3. **Ready to use!**
+   All commands should be prefixed with `poetry run` (as shown in the examples below)
 
 4. **Install FFmpeg** (if not already installed):
    ```bash
@@ -47,16 +45,12 @@ This project processes videos through three steps:
    # Download from https://ffmpeg.org/download.html
    ```
 
-5. **Configure Google Cloud** (for AI processing):
-   - Create a Google Cloud project
-   - Enable the Vertex AI API
-   - Set up authentication:
+5. **Set up Gemini API key**:
+   - Get a free API key from [Google AI Studio](https://aistudio.google.com/apikey)
+   - Copy `.env.example` to `.env` and add your API key:
      ```bash
-     gcloud auth application-default login
-     ```
-   - Set environment variables:
-     ```bash
-     export GOOGLE_CLOUD_PROJECT="your-project-id"
+     cp .env.example .env
+     # Edit .env and replace 'your-api-key-here' with your actual API key
      ```
 
 ## Workflow

@@ -2,13 +2,17 @@
 import os
 import json
 import base64
-import vertexai
-from vertexai.generative_models import GenerativeModel, Part, SafetySetting
+import google.genai as genai
+from google.genai import types
 from pathlib import Path
 import argparse
 import sys
 import re
 import shutil
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def encode_image_to_base64(image_path):
     """Encode image file to base64."""
@@ -33,19 +37,19 @@ def create_content_parts(api_data, frames_dir, max_frames=None, prompt_path=None
     
     # Add the blog prompt
     blog_prompt = load_blog_prompt(prompt_path)
-    parts.append(Part.from_text(blog_prompt))
+    parts.append(types.Part.from_text(text=blog_prompt))
     
     # Add context about the video
-    parts.append(Part.from_text(f"\n\n## Video Information\n"
-                                f"Title: {api_data['video_title']}\n"
-                                f"Duration: {api_data['total_duration']}\n"
-                                f"Total Frames Available: {api_data['frame_count']}\n\n"))
+    parts.append(types.Part.from_text(text=f"\n\n## Video Information\n"
+                                          f"Title: {api_data['video_title']}\n"
+                                          f"Duration: {api_data['total_duration']}\n"
+                                          f"Total Frames Available: {api_data['frame_count']}\n\n"))
     
     # Add full transcript
-    parts.append(Part.from_text(f"## Full Transcript\n\n{api_data['full_transcript']}\n\n"))
+    parts.append(types.Part.from_text(text=f"## Full Transcript\n\n{api_data['full_transcript']}\n\n"))
     
     # Add frame images with their transcript segments
-    parts.append(Part.from_text("## Frame Images with Context\n\n"))
+    parts.append(types.Part.from_text(text="## Frame Images with Context\n\n"))
     
     # Use all segments or limit if specified
     segments = api_data['segments']
@@ -61,91 +65,83 @@ def create_content_parts(api_data, frames_dir, max_frames=None, prompt_path=None
     # Add each frame with its context
     for i, segment in enumerate(selected_segments):
         # Add frame context
-        parts.append(Part.from_text(f"\n### Frame {segment['frame_number']} - [{segment['timestamp']}]\n"
-                                   f"Transcript: {segment['transcript_segment']}\n"))
+        parts.append(types.Part.from_text(text=f"\n### Frame {segment['frame_number']} - [{segment['timestamp']}]\n"
+                                              f"Transcript: {segment['transcript_segment']}\n"))
         
-        # Add frame image
+        # Add frame image path - we'll upload these in process_with_gemini
         try:
             # Image path is relative to frames directory
             image_path = os.path.join(frames_dir, segment['image_path'])
-            image_data = encode_image_to_base64(image_path)
-            parts.append(Part.from_data(
-                mime_type="image/jpeg",
-                data=image_data
-            ))
+            if os.path.exists(image_path):
+                parts.append(image_path)  # Store path for later upload
+            else:
+                print(f"Warning: Image not found: {segment['image_path']}")
         except Exception as e:
-            print(f"Warning: Could not load image {segment['image_path']}: {e}")
+            print(f"Warning: Could not process image {segment['image_path']}: {e}")
     
     # Final instruction
-    parts.append(Part.from_text("\n\n## Task\n\n"
-                               "Based on the above transcript and frame images, "
-                               "create a comprehensive blog post following the style guidelines provided. "
-                               "Make sure to reference specific frames where relevant and create a "
-                               "cohesive narrative that stands on its own."))
+    parts.append(types.Part.from_text(text="\n\n## Task\n\n"
+                                          "Based on the above transcript and frame images, "
+                                          "create a comprehensive blog post following the style guidelines provided. "
+                                          "Make sure to reference specific frames where relevant and create a "
+                                          "cohesive narrative that stands on its own."))
     
     return parts
 
 def process_with_gemini(parts, model_name="gemini-2.5-pro"):
     """Send content to Gemini and get blog post."""
     
-    # Initialize Vertex AI
-    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-    if not project_id:
-        raise ValueError("Please set GOOGLE_CLOUD_PROJECT environment variable")
+    # Get API key from environment
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("Please set GEMINI_API_KEY environment variable")
     
-    vertexai.init(project=project_id, location="us-central1")
+    # Initialize client
+    client = genai.Client(api_key=api_key)
     
-    # Configure model
-    model = GenerativeModel(model_name)
+    # Process parts to handle file uploads
+    processed_parts = []
+    uploaded_files = []  # Keep track of uploaded files
     
-    # Safety settings
-    safety_settings = [
-        SafetySetting(
-            category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-            threshold=SafetySetting.HarmBlockThreshold.OFF
-        ),
-        SafetySetting(
-            category=SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-            threshold=SafetySetting.HarmBlockThreshold.OFF
-        ),
-        SafetySetting(
-            category=SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-            threshold=SafetySetting.HarmBlockThreshold.OFF
-        ),
-        SafetySetting(
-            category=SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
-            threshold=SafetySetting.HarmBlockThreshold.OFF
-        )
-    ]
+    print("Processing content parts...")
+    for part in parts:
+        if isinstance(part, str) and part.endswith('.jpg') and os.path.exists(part):
+            # This is an image path, upload it using Files API
+            print(f"Uploading {os.path.basename(part)}...")
+            try:
+                uploaded_file = client.files.upload(file=part)
+                processed_parts.append(uploaded_file)
+                uploaded_files.append(uploaded_file)
+            except Exception as e:
+                print(f"Warning: Failed to upload {part}: {e}")
+        else:
+            # This is already a Part object
+            processed_parts.append(part)
+    
+    print(f"Uploaded {len(uploaded_files)} images")
     
     # Generate content
     print(f"Sending to {model_name}...")
-    response = model.generate_content(
-        parts,
-        safety_settings=safety_settings,
-        generation_config={
-            "temperature": 0.7,
-            "top_p": 0.95,
-            "max_output_tokens": 8192,
-        }
+    response = client.models.generate_content(
+        model=model_name,
+        contents=processed_parts,
+        config=types.GenerateContentConfig(
+            temperature=0.7,
+            top_p=0.95,
+            max_output_tokens=8192,
+        )
     )
     
-    # Handle response with multiple parts
-    try:
-        # Try simple text access first
-        return response.text
-    except ValueError:
-        # If that fails, extract text from parts
-        if response.candidates:
-            candidate = response.candidates[0]
-            if candidate.content and candidate.content.parts:
-                # Combine all text parts
-                text_parts = []
-                for part in candidate.content.parts:
-                    if hasattr(part, 'text') and part.text:
-                        text_parts.append(part.text)
-                return '\n'.join(text_parts)
-        raise ValueError("Could not extract text from response")
+    # Clean up uploaded files
+    print("Cleaning up uploaded files...")
+    for file in uploaded_files:
+        try:
+            client.files.delete(name=file.name)
+        except Exception as e:
+            print(f"Warning: Failed to delete {file.name}: {e}")
+    
+    # Extract text from response
+    return response.text
 
 def extract_referenced_frames(blog_content):
     """Extract frame references from the blog post markdown."""

@@ -82,3 +82,5 @@ temp/
 *.key
 *.pem
 set_api_key.sh 
+# Environment variables
+.env

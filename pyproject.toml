@@ -4,10 +4,12 @@ version = "0.1.0"
 description = "Convert instructional videos into blog posts by extracting key frames and using AI for content generation"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.8"
-google-cloud-aiplatform = "^1.38.0"
+python = "^3.9"
+google-genai = "^1.25.0"
+python-dotenv = "^1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
