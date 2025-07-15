@@ -130,8 +130,10 @@ poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-wit
 - `--max-frames` - Limit frames if needed (default: use all frames)
 - `--model` - Model choice (default: gemini-2.5-pro)
 - `--prompt` - Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)
-- `--use-files-api` - Use Files API to upload images instead of inline encoding (default: inline)
+- `--use-files-api` - Use [Files API](https://ai.google.dev/gemini-api/docs/files) to upload images instead of inline encoding (default: inline)
 - `--delete-uploads` - Delete uploaded files after generation (only with --use-files-api, default: keep files)
+
+> **Note**: The default inline encoding is faster and works well even with ~100MB of local image content, despite Google's documentation suggesting the Files API for content over 20MB.
 
 **Examples**:
 ```bash

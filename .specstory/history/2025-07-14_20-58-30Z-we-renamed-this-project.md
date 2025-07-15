@@ -1466,3 +1466,79 @@ This gives users control over the trade-offs between speed (inline) and handling
 
 ---
 
+_**User**_
+
+add a note on line 136 of @README.md that inline files is faster and seems to work when the local image content is ~100MB even though the Google GenAI docs suggest that you need to use Files when total context size is over 20MB
+
+---
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **Edit**
+
+Result:
+
+```
+String to replace not found in file.
+String: - `--use-files-api` - Use Files API to upload images instead of inline encoding (default: inline)
+- `--delete-uploads` - Delete uploaded files after generation (only with --use-files-api, default: keep files)
+
+
+**Examples**:
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Let me check the exact format:
+
+---
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **Read** `./README.md`
+
+Result:
+
+```
+130→- `--max-frames` - Limit frames if needed (default: use all frames)
+   131→- `--model` - Model choice (default: gemini-2.5-pro)
+   132→- `--prompt` - Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)
+   133→- `--use-files-api` - Use [Files API](https://ai.google.dev/gemini-api/docs/files) to upload images instead of inline encoding (default: inline)
+   134→- `--delete-uploads` - Delete uploaded files after generation (only with --use-files-api, default: keep files)
+   135→
+   136→
+   137→
+   138→**Examples**:
+   139→\```bash
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **Edit**
+
+Result:
+
+```
+The file /Users/jakelevirne/dev/specstoryai/keyframe-blogger/README.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+   129→**Options**:
+   130→- `--max-frames` - Limit frames if needed (default: use all frames)
+   131→- `--model` - Model choice (default: gemini-2.5-pro)
+   132→- `--prompt` - Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)
+   133→- `--use-files-api` - Use [Files API](https://ai.google.dev/gemini-api/docs/files) to upload images instead of inline encoding (default: inline)
+   134→- `--delete-uploads` - Delete uploaded files after generation (only with --use-files-api, default: keep files)
+   135→
+   136→> **Note**: The default inline encoding is faster and works well even with ~100MB of local image content, despite Google's documentation suggesting the Files API for content over 20MB.
+   137→
+   138→**Examples**:
+   139→\```bash
+   140→# Use all frames with Gemini 2.5 Pro (recommended)
+   141→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
+   142→
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Done! Added the note about inline encoding performance on line 136.
+
+---
+
