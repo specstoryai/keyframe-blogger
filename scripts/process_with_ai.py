@@ -31,7 +31,7 @@ def load_blog_prompt(prompt_path=None):
     with open(prompt_path, 'r') as f:
         return f.read()
 
-def create_content_parts(api_data, frames_dir, max_frames=None, prompt_path=None):
+def create_content_parts(api_data, frames_dir, max_frames=None, prompt_path=None, use_files_api=False):
     """Create content parts for Gemini API from api_frame_data.json."""
     parts = []
     
@@ -73,12 +73,17 @@ def create_content_parts(api_data, frames_dir, max_frames=None, prompt_path=None
             # Image path is relative to frames directory
             image_path = os.path.join(frames_dir, segment['image_path'])
             if os.path.exists(image_path):
-                with open(image_path, 'rb') as f:
-                    image_bytes = f.read()
-                parts.append(types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type="image/jpeg"
-                ))
+                if use_files_api:
+                    # Store path for later upload
+                    parts.append(image_path)
+                else:
+                    # Inline the image data
+                    with open(image_path, 'rb') as f:
+                        image_bytes = f.read()
+                    parts.append(types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type="image/jpeg"
+                    ))
             else:
                 print(f"Warning: Image not found: {segment['image_path']}")
         except Exception as e:
@@ -93,7 +98,7 @@ def create_content_parts(api_data, frames_dir, max_frames=None, prompt_path=None
     
     return parts
 
-def process_with_gemini(parts, model_name="gemini-2.5-pro"):
+def process_with_gemini(parts, model_name="gemini-2.5-pro", use_files_api=False, delete_uploads=False):
     """Send content to Gemini and get blog post."""
     
     # Get API key from environment
@@ -104,17 +109,52 @@ def process_with_gemini(parts, model_name="gemini-2.5-pro"):
     # Initialize client
     client = genai.Client(api_key=api_key)
     
-    # Generate content with inline images
-    print(f"Sending to {model_name} with {len(parts)} content parts...")
+    # Process parts if using Files API
+    processed_parts = []
+    uploaded_files = []
+    
+    if use_files_api:
+        print("Using Files API for image uploads...")
+        for part in parts:
+            if isinstance(part, str) and part.endswith('.jpg') and os.path.exists(part):
+                # This is an image path, upload it
+                print(f"Uploading {os.path.basename(part)}...")
+                try:
+                    uploaded_file = client.files.upload(file=part)
+                    processed_parts.append(uploaded_file)
+                    uploaded_files.append(uploaded_file)
+                except Exception as e:
+                    print(f"Warning: Failed to upload {part}: {e}")
+            else:
+                # This is already a Part object
+                processed_parts.append(part)
+        print(f"Uploaded {len(uploaded_files)} images")
+    else:
+        # Use inline images (default)
+        processed_parts = parts
+    
+    # Generate content
+    print(f"Sending to {model_name} with {len(processed_parts)} content parts...")
     response = client.models.generate_content(
         model=model_name,
-        contents=parts,
+        contents=processed_parts,
         config=types.GenerateContentConfig(
             temperature=0.7,
             top_p=0.95,
             max_output_tokens=8192,
         )
     )
+    
+    # Clean up uploaded files if requested
+    if use_files_api and delete_uploads and uploaded_files:
+        print("Cleaning up uploaded files...")
+        for file in uploaded_files:
+            try:
+                client.files.delete(name=file.name)
+            except Exception as e:
+                print(f"Warning: Failed to delete {file.name}: {e}")
+    elif use_files_api and uploaded_files and not delete_uploads:
+        print(f"Files remain uploaded: {[f.name for f in uploaded_files]}")
     
     # Extract text from response
     return response.text
@@ -199,6 +239,10 @@ def main():
                        help='Gemini model to use (default: gemini-2.5-pro)')
     parser.add_argument('--prompt', type=str, default=None,
                        help='Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)')
+    parser.add_argument('--use-files-api', action='store_true',
+                       help='Use Files API to upload images instead of inline encoding (default: inline)')
+    parser.add_argument('--delete-uploads', action='store_true',
+                       help='Delete uploaded files after generation (only with --use-files-api, default: keep files)')
     args = parser.parse_args()
     
     try:
@@ -223,10 +267,13 @@ def main():
             print(f"Creating content with up to {args.max_frames} frames...")
         else:
             print(f"Creating content with all available frames...")
-        parts = create_content_parts(api_data, frames_dir, max_frames=args.max_frames, prompt_path=args.prompt)
+        parts = create_content_parts(api_data, frames_dir, max_frames=args.max_frames, 
+                                    prompt_path=args.prompt, use_files_api=args.use_files_api)
         
         # Process with Gemini
-        blog_content = process_with_gemini(parts, model_name=args.model)
+        blog_content = process_with_gemini(parts, model_name=args.model, 
+                                         use_files_api=args.use_files_api,
+                                         delete_uploads=args.delete_uploads)
         
         # Create output directory
         output_dir = os.path.join(args.directory, "output")

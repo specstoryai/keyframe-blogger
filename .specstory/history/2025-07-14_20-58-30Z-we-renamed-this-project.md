@@ -1314,3 +1314,155 @@ The approach is the same as what worked well with Vertex AI, just using the goog
 
 ---
 
+_**User**_
+
+This works well. Now add in a command line option for using the files API if the user wants. Don't delete by default. Make that another separate command line option. So, by default the script will use inline images. It can be configured to use the File API instead with a command-line option, which won't delete by default unless specified.
+
+---
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **MultiEdit**
+
+Result:
+
+```
+Applied 6 edits to /Users/jakelevirne/dev/specstoryai/keyframe-blogger/scripts/process_with_ai.py:
+1. Replaced "def create_content_parts(api_data, frames_dir, max..." with "def create_content_parts(api_data, frames_dir, max..."
+2. Replaced "        # Add frame image
+        try:
+           ..." with "        # Add frame image
+        try:
+           ..."
+3. Replaced "def process_with_gemini(parts, model_name="gemini-..." with "def process_with_gemini(parts, model_name="gemini-..."
+4. Replaced "    parser.add_argument('--prompt', type=str, defa..." with "    parser.add_argument('--prompt', type=str, defa..."
+5. Replaced "        parts = create_content_parts(api_data, fra..." with "        parts = create_content_parts(api_data, fra..."
+6. Replaced "        # Process with Gemini
+        blog_content..." with "        # Process with Gemini
+        blog_content..."
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Now let's update the README to document these new options:
+
+---
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **Edit**
+
+Result:
+
+```
+String to replace not found in file.
+String: **Options**:\n- `--max-frames` - Limit frames if needed (default: use all frames)\n- `--model` - Model choice (default: gemini-2.5-pro)\n- `--prompt` - Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **Read** `./README.md`
+
+Result:
+
+```
+120→   - Frame metadata and paths
+   121→   - Full transcript as single string
+   122→
+   123→### 4. Generate Blog Post with AI
+   124→
+   125→\```bash
+   126→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
+   127→\```
+   128→
+   129→**Options**:
+   130→- `--max-frames` - Limit frames if needed (default: use all frames)
+   131→- `--model` - Model choice (default: gemini-2.5-pro)
+   132→- `--prompt` - Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)
+   133→
+   134→**Examples**:
+   135→\```bash
+   136→# Use all frames with Gemini 2.5 Pro (recommended)
+   137→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
+   138→
+   139→# Use a faster model with limited frames
+   140→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --model gemini-2.0-flash-exp --max-frames 50
+   141→
+   142→# Use a custom blog prompt file
+   143→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --prompt custom_prompt.md
+   144→\```
+   145→
+   146→**What it does**:
+   147→- Loads blog writing style from `BLOG_PROMPT.md` (default) or custom prompt file
+   148→- Sends all frames + full transcript to Gemini 2.5 Pro
+   149→- Generates blog post named after your directory
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **Edit**
+
+Result:
+
+```
+The file /Users/jakelevirne/dev/specstoryai/keyframe-blogger/README.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+   125→\```bash
+   126→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1
+   127→\```
+   128→
+   129→**Options**:
+   130→- `--max-frames` - Limit frames if needed (default: use all frames)
+   131→- `--model` - Model choice (default: gemini-2.5-pro)
+   132→- `--prompt` - Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)
+   133→- `--use-files-api` - Use Files API to upload images instead of inline encoding (default: inline)
+   134→- `--delete-uploads` - Delete uploaded files after generation (only with --use-files-api, default: keep files)
+   135→
+   136→**Examples**:
+   137→\```bash
+   138→# Use all frames with Gemini 2.5 Pro (recommended)
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Let's also add examples for the new options:
+
+---
+
+_**Agent (claude-opus-4-20250514)**_
+
+Tool use: **Edit**
+
+Result:
+
+```
+The file /Users/jakelevirne/dev/specstoryai/keyframe-blogger/README.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+   140→
+   141→# Use a faster model with limited frames
+   142→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --model gemini-2.0-flash-exp --max-frames 50
+   143→
+   144→# Use a custom blog prompt file
+   145→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --prompt custom_prompt.md
+   146→
+   147→# Use Files API for large videos (uploads images to Gemini)
+   148→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --use-files-api
+   149→
+   150→# Use Files API and clean up after generation
+   151→poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --use-files-api --delete-uploads
+   152→\```
+   153→
+   154→**What it does**:
+   155→- Loads blog writing style from `BLOG_PROMPT.md` (default) or custom prompt file
+```
+
+_**Agent (claude-opus-4-20250514)**_
+
+Perfect! Now the script has flexible options:
+
+1. **Default behavior**: Uses inline image encoding (fast, no uploads)
+2. **`--use-files-api`**: Switches to Files API uploads (useful for very large videos or if you hit size limits)
+3. **`--delete-uploads`**: Cleans up uploaded files after generation (only works with `--use-files-api`)
+
+This gives users control over the trade-offs between speed (inline) and handling larger files (Files API).
+
+---
+

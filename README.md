@@ -130,6 +130,8 @@ poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-wit
 - `--max-frames` - Limit frames if needed (default: use all frames)
 - `--model` - Model choice (default: gemini-2.5-pro)
 - `--prompt` - Path to custom blog prompt markdown file (default: BLOG_PROMPT.md in current directory)
+- `--use-files-api` - Use Files API to upload images instead of inline encoding (default: inline)
+- `--delete-uploads` - Delete uploaded files after generation (only with --use-files-api, default: keep files)
 
 **Examples**:
 ```bash
@@ -141,6 +143,12 @@ poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-wit
 
 # Use a custom blog prompt file
 poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --prompt custom_prompt.md
+
+# Use Files API for large videos (uploads images to Gemini)
+poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --use-files-api
+
+# Use Files API and clean up after generation
+poetry run python scripts/process_with_ai.py building-a-mintlify-alternative-with-AI-Part-1 --use-files-api --delete-uploads
 ```
 
 **What it does**:
